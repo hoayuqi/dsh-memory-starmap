@@ -48,7 +48,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "file:///D:/gzq/dsh-memory-starmap"
+    "url": "git+https://github.com/hoayuqi/dsh-memory-starmap.git"
+  },
+  "homepage": "https://github.com/hoayuqi/dsh-memory-starmap#readme",
+  "bugs": {
+    "url": "https://github.com/hoayuqi/dsh-memory-starmap/issues"
   },
   "scripts": {
     "test": "node tools/selftest.mjs && node tools/clienttest.mjs",
