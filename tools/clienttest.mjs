@@ -120,7 +120,7 @@ vm.runInContext(source, sandbox, { filename: 'client.js' })
 
 /* ── 断言 ──────────────────────────────────────────────────────────────── */
 ok('只调用了一次 __ModuleLoader__.load', loaded.length === 1, loaded.length)
-ok('load id 是包名', loaded[0] && loaded[0].id === '@local/dsh-memory-starmap', loaded[0] && loaded[0].id)
+ok('load id 是包名', loaded[0] && loaded[0].id === '@gzqdev/dsh-memory-starmap', loaded[0] && loaded[0].id)
 
 const mod = win.__registered
 ok('factory 返回 name', typeof mod.name === 'string' && mod.name.length > 0, mod.name)

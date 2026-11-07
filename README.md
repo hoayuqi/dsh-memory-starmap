@@ -1,4 +1,4 @@
-# @local/dsh-memory-starmap
+# @gzqdev/dsh-memory-starmap
 
 把 `dsh-memento` 的记忆条目画成一张**只读星图**，作为 DSH 桌面/网页宿主里的一个客户端插件。
 
@@ -55,7 +55,7 @@
 ```yaml
 - insert:
     - id: memory-starmap
-      name: '@local/dsh-memory-starmap'
+      name: '@gzqdev/dsh-memory-starmap'
       config:
         dbPath: ''          # 仅当没有 memory 服务时用；正常留空
         entryLimit: 2000    # 页面最多画多少节点
@@ -78,7 +78,7 @@ NODE="C:/Users/hyqdz/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/node/bin
 ### 改完代码为什么要手动同步
 
 profile 里这份包是 pnpm 从 `file:D:/gzq/dsh-memory-starmap` 装出来的**副本**
-（`node_modules/@local/dsh-memory-starmap`，不是符号链接）。改了源文件后，`dsh plugin add`
+（`node_modules/@gzqdev/dsh-memory-starmap`，不是符号链接）。改了源文件后，`dsh plugin add`
 不会刷新它（pnpm 认为依赖没变化，实测把版本号从 0.1.0 提到 0.1.1 也一样）。所以：
 
 ```powershell

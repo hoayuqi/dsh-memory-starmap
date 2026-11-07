@@ -1,4 +1,4 @@
-// @local/dsh-memory-starmap —— 浏览器半侧（零构建 vanilla，单模块）。
+// @gzqdev/dsh-memory-starmap —— 浏览器半侧（零构建 vanilla，单模块）。
 //
 // 宿主 dsh.client 扫描把本文件当 classic script 注入 __DSH_BOOT__，执行时经
 // window.__ModuleLoader__.load 注册唯一 factory（id = 包名，与宿主 graph row 对齐）。
@@ -14,7 +14,7 @@
 
   window.__ModuleLoader__.load({
     // 必须与 package.json 的 name 完全一致：宿主按它把 graph row 物化到 factory。
-    id: '@local/dsh-memory-starmap',
+    id: '@gzqdev/dsh-memory-starmap',
     /**
      * @param {(id: string) => any} _require - 宿主模块解析（本插件不依赖 react）。
      * @returns {{name: string, inject: string[], apply: (ctx: any) => void}}

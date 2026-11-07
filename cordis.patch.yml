@@ -1,11 +1,11 @@
-# @local/dsh-memory-starmap —— 把 dsh-memento 的记忆画成一张只读星图
+# @gzqdev/dsh-memory-starmap —— 把 dsh-memento 的记忆画成一张只读星图
 #
 # 这里是**基线配置**（启动时生效，改它要重启 DSH）。
 # 两条路由都是只读的：/api/memory-starmap/graph 与 /api/memory-starmap/page。
 # 本插件不注册模型工具、不注入上下文、不写记忆库。
 - insert:
     - id: memory-starmap
-      name: '@local/dsh-memory-starmap'
+      name: '@gzqdev/dsh-memory-starmap'
       config:
         # 兜底直读路径：只有「没装 dsh-memento 服务」时才会用到它。
         # 正常情况下走 memory 服务的 store.listEntries()（不改 recall_count）。

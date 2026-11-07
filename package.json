@@ -1,5 +1,5 @@
 {
-  "name": "@local/dsh-memory-starmap",
+  "name": "@gzqdev/dsh-memory-starmap",
   "version": "0.2.0",
   "type": "module",
   "description": "把 dsh-memento 的条目画成一张只读星图（宿主侧只读路由 + 浏览器全屏浮层），零第三方依赖。",
@@ -53,5 +53,8 @@
   "scripts": {
     "test": "node tools/selftest.mjs && node tools/clienttest.mjs",
     "pack": "npm pack"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

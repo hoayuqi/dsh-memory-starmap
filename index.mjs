@@ -1,5 +1,5 @@
 /**
- * @local/dsh-memory-starmap —— 宿主半侧（只读）。
+ * @gzqdev/dsh-memory-starmap —— 宿主半侧（只读）。
  *
  * 只做两件事，都不碰记忆库的内容与计数：
  *   1. 把 dsh-memento 的条目 / 预算 / 审计整理成一份星图 JSON（GET /api/memory-starmap/graph）；
