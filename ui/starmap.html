@@ -1,0 +1,1074 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>记忆星图 · dsh-memento</title>
+<style>
+  :root{
+    --bg0:#04060f; --bg1:#080c1c; --panel:rgba(9,12,24,.95);
+    --line:rgba(120,160,255,.16); --txt:#dfe6ff; --dim:#7d88ad; --dim2:#565f7d;
+    --gold:#ffd479; --cyan:#6fe3ff; --violet:#b78bff; --rose:#ff8fb1; --mint:#7dffc4;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0}
+  body{
+    background:radial-gradient(1200px 800px at 30% 20%,#0d1430 0%,var(--bg1) 45%,var(--bg0) 100%);
+    color:var(--txt); font:13px/1.6 -apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+    overflow:hidden; user-select:none;
+  }
+  #sky{position:fixed;inset:0;display:block;cursor:grab}
+  #sky.dragging{cursor:grabbing}
+
+  /* ---------- HUD ---------- */
+  .hud{position:fixed;z-index:5;pointer-events:none}
+  .hud > *{pointer-events:auto}
+
+  #title{top:20px;left:24px;max-width:380px}
+  #title h1{margin:0;font-size:15px;font-weight:600;letter-spacing:.14em;color:#eef2ff}
+  #title h1 span{color:var(--gold)}
+  #title p{margin:6px 0 0;font-size:11.5px;color:var(--dim);line-height:1.55}
+  #title .src{margin-top:8px;font-size:10.5px;color:var(--dim2);font-family:ui-monospace,Consolas,monospace}
+
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .chip{font-size:10.5px;padding:2px 8px;border:1px solid var(--line);border-radius:999px;color:#aab4d4;background:rgba(20,26,48,.55)}
+  .chip b{color:#e8edff;font-weight:600}
+
+  #tools{top:18px;right:22px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 460px)}
+  .box{background:rgba(12,17,34,.8);border:1px solid var(--line);border-radius:10px;padding:6px 10px;backdrop-filter:blur(8px)}
+  #q{width:190px;background:transparent;border:0;outline:0;color:var(--txt);font-size:12.5px}
+  #q::placeholder{color:var(--dim2)}
+  button.tg{
+    font:inherit;font-size:11.5px;color:#9aa6c8;background:rgba(12,17,34,.8);border:1px solid var(--line);
+    border-radius:10px;padding:6px 11px;cursor:pointer;transition:.15s;
+  }
+  button.tg:hover{color:#e8edff;border-color:rgba(140,180,255,.42)}
+  button.tg.on{color:#04101c;background:linear-gradient(180deg,#9fe8ff,#63c8ee);border-color:transparent;font-weight:600}
+  button.tg.warn.on{background:linear-gradient(180deg,#ffd479,#e9a93c);color:#241a04}
+
+  /* ---------- legend ---------- */
+  #legend{bottom:20px;right:22px;font-size:11px;width:246px}
+  #legend .sec{color:var(--dim2);font-size:10px;letter-spacing:.12em;margin:0 0 6px}
+  #legend .row{display:flex;align-items:center;gap:7px;color:#a8b2d0;margin:3px 0}
+  .dot{width:8px;height:8px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+  .taglist{display:flex;flex-wrap:wrap;gap:4px 6px;margin-top:2px}
+  .taglist i{font-style:normal;font-size:10px;color:#8b96b8;display:flex;align-items:center;gap:4px}
+  .taglist i b{width:6px;height:6px;border-radius:50%;background:currentColor;box-shadow:0 0 6px currentColor}
+
+  /* ---------- budget ---------- */
+  #budget{bottom:20px;left:24px;width:300px}
+  #budget .sec{color:var(--dim2);font-size:10px;letter-spacing:.12em;margin-bottom:8px}
+  .bar{margin:7px 0 10px}
+  .bar .top{display:flex;justify-content:space-between;font-size:11px;color:#a8b2d0;margin-bottom:4px}
+  .bar .top b{font-weight:600;color:#e8edff}
+  .bar .track{height:5px;border-radius:3px;background:rgba(255,255,255,.07);overflow:hidden}
+  .bar .fill{height:100%;border-radius:3px;transition:width .5s ease}
+  .bar.over .fill{background:linear-gradient(90deg,#ff9d6b,#ff5d7a)!important}
+  #budget .note{font-size:10px;color:var(--dim2);margin-top:2px}
+
+  /* ---------- sidebar ---------- */
+  #side{
+    position:fixed;top:0;right:0;bottom:0;width:400px;max-width:92vw;z-index:8;
+    background:var(--panel);border-left:1px solid var(--line);backdrop-filter:blur(14px);
+    transform:translateX(102%);transition:transform .28s cubic-bezier(.4,0,.2,1);
+    display:flex;flex-direction:column;
+  }
+  #side.open{transform:none}
+  #side .hd{padding:16px 18px 12px;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:flex-start}
+  #side .hd .kind{font-size:10px;letter-spacing:.1em;padding:2px 7px;border-radius:5px;flex:none;margin-top:2px}
+  #side .hd .ttl{font-size:13px;font-weight:600;color:#eef2ff;line-height:1.5}
+  #close{margin-left:auto;background:none;border:0;color:var(--dim);font-size:18px;cursor:pointer;line-height:1;padding:2px 4px}
+  #close:hover{color:#fff}
+  #side .bd{padding:14px 18px 22px;overflow:auto;font-size:12.5px;line-height:1.75}
+  #side .txt{white-space:pre-wrap;word-break:break-word;color:#e2e8fb;background:rgba(255,255,255,.03);border:1px solid var(--line);border-radius:10px;padding:11px 12px}
+  .meta{margin-top:12px;display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:11.5px;color:#a8b2d0}
+  .meta dt{color:var(--dim2)}
+  .meta dd{margin:0;color:#cdd5ee;font-family:ui-monospace,Consolas,monospace;font-size:11px;word-break:break-all}
+  .tchips{display:flex;flex-wrap:wrap;gap:5px;margin-top:12px}
+  .tchips span{font-size:10.5px;padding:2px 8px;border-radius:999px;background:rgba(140,180,255,.1);border:1px solid var(--line);color:#b9c4e4}
+  .tchips span.none{color:#5d6688}
+  .sect{margin-top:18px;font-size:10px;letter-spacing:.12em;color:var(--dim2)}
+  .evt{margin-top:8px;font-size:11px;color:#9fabc9;display:flex;gap:8px;align-items:baseline}
+  .evt time{color:#66708f;font-family:ui-monospace,Consolas,monospace;font-size:10px;flex:none}
+  .evt em{font-style:normal;color:#c3ccea}
+  .evt .bad{color:#ff8fa3}
+
+  /* ---------- tooltip ---------- */
+  #tip{
+    position:fixed;z-index:9;pointer-events:none;max-width:300px;opacity:0;transform:translateY(4px);
+    transition:opacity .12s,transform .12s;
+    background:rgba(9,13,26,.96);border:1px solid rgba(140,180,255,.28);border-radius:9px;
+    padding:9px 11px;font-size:11.5px;line-height:1.6;color:#cfd7f0;box-shadow:0 10px 30px rgba(0,0,0,.55)
+  }
+  #tip.on{opacity:1;transform:none}
+  #tip .h{font-size:11px;color:#fff;font-weight:600;margin-bottom:3px}
+  #tip .m{font-size:10px;color:var(--dim);font-family:ui-monospace,Consolas,monospace;margin-top:4px}
+  #tip .e{color:#ffd479}
+
+  @media (max-width:860px){
+    #tools{max-width:calc(100vw - 40px);top:auto;bottom:150px;right:16px}
+    #legend,#budget{display:none}
+    #side{width:100vw}
+  }
+  #err{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:40;
+    max-width:min(620px,86vw);padding:18px 22px;border:1px solid #ff8fb155;border-radius:12px;
+    background:rgba(20,10,18,.94);color:#ffc6d5;font:13px/1.75 ui-monospace,"Cascadia Mono",monospace;white-space:pre-wrap}
+  #err b{display:block;margin-bottom:8px;color:#ff9db4;font:600 15px/1.4 system-ui,"Segoe UI",sans-serif}
+</style>
+
+</head>
+<body>
+<canvas id="sky"></canvas>
+
+<div class="hud" id="title">
+  <h1>记忆<span>星图</span></h1>
+  <p>每一颗星是一条记忆条目：<b style="color:#ffd479;font-weight:500">体积</b>=字符数，<b style="color:#ffd479;font-weight:500">亮度</b>=被召回次数，<b style="color:#ffd479;font-weight:500">颜色</b>=归属层。点星看全文，滚轮缩放，拖拽移动。</p>
+  <div class="src" id="src"></div>
+  <div class="chips" id="chips"></div>
+</div>
+
+<div class="hud" id="tools">
+  <div class="box"><input id="q" placeholder="搜索记忆 / 标签…" autocomplete="off"></div>
+  <button class="tg on" id="tg-edge">连线</button>
+  <button class="tg on" id="tg-label">标签</button>
+  <button class="tg" id="tg-halo">光晕</button>
+  <button class="tg" id="tg-refresh" title="重新读取 dsh-memento 数据库">刷新</button>
+  <button class="tg warn" id="tg-dense">合成 240 条 · 看极限</button>
+</div>
+<div id="err" hidden></div>
+
+<div class="hud" id="legend">
+  <div class="sec">图例</div>
+  <div class="row"><span class="dot" style="color:var(--gold);background:var(--gold)"></span>user-global（全局偏好）</div>
+  <div class="row"><span class="dot" style="color:var(--cyan);background:var(--cyan)"></span>workspace · agent（本工作区事实）</div>
+  <div class="row"><span class="dot" style="color:#8a94b8;background:#8a94b8;box-shadow:none;border:1px dashed #b8c2e0"></span>虚线环 = 孤立条目（无任何线索）</div>
+  <div class="row"><span class="dot" style="color:#9fc2ff;background:#9fc2ff;box-shadow:none;border:1px dashed #9fc2ff"></span>tag ×N = 星团（点开散成成员）</div>
+  <div class="sec" style="margin-top:12px">标签星群</div>
+  <div class="taglist" id="taglist"></div>
+</div>
+
+<div class="hud" id="budget">
+  <div class="sec">字符预算占用（真实）</div>
+  <div id="bars"></div>
+  <div class="note" id="bnote"></div>
+</div>
+
+<div id="tip"></div>
+
+<aside id="side">
+  <div class="hd">
+    <span class="kind" id="s-kind"></span>
+    <div class="ttl" id="s-ttl"></div>
+    <button id="close">×</button>
+  </div>
+  <div class="bd">
+    <div class="txt" id="s-txt"></div>
+    <div class="tchips" id="s-tags"></div>
+    <dl class="meta" id="s-meta"></dl>
+    <div class="sect">该条目的审计轨迹</div>
+    <div id="s-audit"></div>
+  </div>
+</aside>
+
+<script>
+(() => {
+'use strict';
+/** 运行期数据（由 /api/memory-starmap/graph 填充；不再内嵌快照）。 */
+let DATA = { entries: [], budgets: [], audit: [], dbPath: '', generatedAt: 0 };
+
+/* ============ 常量 ============ */
+const COL = {
+  'user-global'      : '#ffd479',
+  'workspace:agent'  : '#6fe3ff',
+  'workspace:user'   : '#b78bff'
+};
+const colorOf = e => COL[e.track + ':' + e.scope] || (e.scope === 'user-global' ? COL['user-global'] : COL['workspace:agent']);
+const TAG_HUES = ['#b78bff','#7dffc4','#ff8fb1','#8fb4ff','#ffd479','#6fe3ff','#ffa96f','#c0ff8f'];
+const tagHue = t => { let h = 0; for (const c of t) h = (h * 31 + c.codePointAt(0)) >>> 0; return TAG_HUES[h % TAG_HUES.length]; };
+
+/* ============ 词元：ASCII 词 + 中文二元组 ============ */
+function tokens(text) {
+  const t = text.toLowerCase();
+  const out = new Set();
+  for (const m of t.matchAll(/[a-z0-9][a-z0-9_.:\/\\-]{2,}/g)) if (!/^\d+$/.test(m[0])) out.add(m[0]);
+  const zh = t.replace(/[^\u4e00-\u9fa5]+/g, ' ');
+  for (const run of zh.split(' ')) {
+    for (let i = 0; i + 2 <= run.length; i++) out.add(run.slice(i, i + 2));
+  }
+  return out;
+}
+
+/* ============ 构图 ============ */
+function buildGraph(entries, opts) {
+  const nodes = entries.map((e, i) => ({
+    ...e, i,
+    x: 0, y: 0, vx: 0, vy: 0,
+    r: Math.max(4.5, Math.min(30, 3.6 + Math.sqrt(e.chars) * 0.62)),
+    color: colorOf(e),
+    heat: Math.min(1, Math.log1p(e.recalls || 0) / Math.log(40)),
+    toks: tokens(e.text),
+    deg: 0
+  }));
+  const df = new Map();
+  for (const n of nodes) for (const t of n.toks) df.set(t, (df.get(t) || 0) + 1);
+  const edges = [], seen = new Set();
+  const N = nodes.length;
+  const maxDeg = N > 60 ? 5 : 99;
+  for (let a = 0; a < N; a++) for (let b = a + 1; b < N; b++) {
+    const A = nodes[a], B = nodes[b];
+    const tagShared = A.tags.filter(t => B.tags.includes(t));
+    let lex = 0;
+    if (N <= 60) {
+      let shared = 0;
+      const [s, l] = A.toks.size <= B.toks.size ? [A.toks, B.toks] : [B.toks, A.toks];
+      for (const t of s) if (l.has(t) && (df.get(t) || 0) <= Math.max(2, N * 0.34)) shared++;
+      lex = shared / Math.max(6, Math.min(A.toks.size, B.toks.size));
+    }
+    const sameSession = A.session && A.session === B.session ? 1 : 0;
+    const tagW = tagShared.length ? 0.55 + 0.2 * (tagShared.length - 1) : 0;
+    const w = tagW + 0.30 * Math.min(1, lex * 2.2) + (sameSession ? 0.22 : 0);
+    if (w < (opts.minW ?? 0.18)) continue;
+    const key = a + ':' + b; if (seen.has(key)) continue; seen.add(key);
+    if (A.deg >= maxDeg || B.deg >= maxDeg) continue;
+    A.deg++; B.deg++;
+    edges.push({ a, b, w: Math.min(1, w), tag: tagShared[0] || null, session: sameSession, lex });
+  }
+  for (const n of nodes) n.isolated = n.deg === 0;
+
+  // ---- 星团：同一个 tag 上的条目够多，就先叠成一颗，点开才散 ----
+  // 贪心分配：条数多的 tag 先成团；一个条目只进一个团（先到先得），
+  // 这样「插件 ×46」不会把「沙盒 ×42」的成员全吃掉。
+  const MIN_CLUSTER = opts?.minCluster ?? 3;
+  const byTag = new Map();
+  for (const n of nodes) for (const t of n.tags) {
+    let arr = byTag.get(t);
+    if (!arr) byTag.set(t, arr = []);
+    arr.push(n);
+  }
+  const claimed = new Set();
+  const clusters = [];
+  for (const [tag, list] of [...byTag].sort((a, b) => (b[1].length - a[1].length) || a[0].localeCompare(b[0]))) {
+    if (list.length < MIN_CLUSTER) break;            // 已按条数降序，后面都不可能够
+    const free = list.filter(n => !claimed.has(n));
+    if (free.length < MIN_CLUSTER) continue;
+    for (const n of free) claimed.add(n);
+    const chars = free.reduce((s, n) => s + n.chars, 0);
+    // 星团颜色 = 成员颜色平均：它的归属层由成员决定，不能随便挑个 tag 色冒充
+    const rgb = free.reduce((s, n) => {
+      const h = n.color.replace('#', '');
+      return [s[0] + parseInt(h.slice(0, 2), 16), s[1] + parseInt(h.slice(2, 4), 16), s[2] + parseInt(h.slice(4, 6), 16)];
+    }, [0, 0, 0]).map(v => Math.round(v / free.length));
+    const mixed = '#' + rgb.map(v => v.toString(16).padStart(2, '0')).join('');
+    clusters.push({
+      kind: 'cluster', id: 'cluster:' + tag, tag, members: free,
+      short: tag + ' ×' + free.length, tags: [tag], color: mixed,
+      chars, heat: Math.max(...free.map(n => n.heat)),
+      recalls: free.reduce((s, n) => s + n.recalls, 0),
+      r: Math.max(9, Math.min(26, 7 + Math.sqrt(chars) * 0.5)),
+      text: '', track: 'mixed', scope: '', version: 0, source: '', session: null,
+      created: 0, updated: 0, lastRecalled: null, toks: new Set(),
+      x: 0, y: 0, vx: 0, vy: 0, deg: 0, isolated: false, i: 0,
+    });
+  }
+  return { nodes, edges, df, clusters, min: MIN_CLUSTER };
+}
+
+/* ============ 折叠：星团 ↔ 成员 ============ */
+const folded = new Set();                       // 已展开的 tag（展开 = 成员从星团里散出来）
+const isFoldable = c => c.members.length >= ((G && G.min) || 3);
+
+/** 折叠中的星团跟着成员的质心走（展开时不改，免得星团节点乱跳）。 */
+function syncClusterCenters() {
+  for (const c of G.clusters) {
+    if (folded.has(c.tag)) continue;
+    const n = c.members.length || 1;
+    c.x = c.members.reduce((s, m) => s + m.x, 0) / n;
+    c.y = c.members.reduce((s, m) => s + m.y, 0) / n;
+    c.vx = c.vy = 0;
+  }
+}
+
+/** 由「完整图 + 折叠状态」算出这一帧要画的节点与线。画布只认 G.nodes / G.edges。 */
+function rebuildView() {
+  const base = G.all.nodes, baseEdges = G.all.edges;
+  const hidden = new Map();                     // 成员 → 它折叠进去的那个星团
+  const nodes = [];
+  for (const c of G.clusters) {
+    if (isFoldable(c)) nodes.push(c);
+    if (!folded.has(c.tag)) for (const m of c.members) hidden.set(m, c);
+  }
+  for (const n of base) if (!hidden.has(n)) nodes.push(n);
+  nodes.forEach((n, i) => { n.i = i; n.deg = 0; });
+
+  const resolve = n => hidden.get(n) || n;
+  const idxOf = new Map(nodes.map((n, i) => [n, i]));
+  const edges = [], seens = new Map();
+  const addEdge = (a, b, w, tag, session) => {
+    const A = idxOf.get(a), B = idxOf.get(b);
+    if (A == null || B == null || A === B) return;
+    const key = A < B ? A + ':' + B : B + ':' + A;
+    const hit = seens.get(key);
+    if (hit) { hit.w = Math.min(1, hit.w + w * 0.55); if (!hit.tag && tag) hit.tag = tag; return; }
+    const e = { a: A, b: B, w, tag, session, lex: 0 };
+    seens.set(key, e); edges.push(e);
+    nodes[A].deg++; nodes[B].deg++;
+  };
+  for (const e of baseEdges) addEdge(resolve(base[e.a]), resolve(base[e.b]), e.w, e.tag, e.session);
+  // 展开的星团：星团节点伸出辐条拉成员，成员才不会飞走
+  for (const c of G.clusters) {
+    if (isFoldable(c) && folded.has(c.tag)) for (const m of c.members) addEdge(c, m, 0.85, c.tag, 0);
+  }
+  // 星团不算「孤立条目」：它本身就代表一大票条目，标成孤立会误导
+  for (const n of nodes) n.isolated = n.kind !== 'cluster' && n.deg === 0;
+  G.nodes = nodes; G.edges = edges;
+}
+
+function expandCluster(tag) {
+  const c = G.clusters.find(x => x.tag === tag);
+  if (!c || !isFoldable(c) || folded.has(tag)) return;
+  const R = 26 + 9 * Math.sqrt(c.members.length);
+  c.members.forEach((m, k) => {
+    const ang = (k / c.members.length) * Math.PI * 2 - Math.PI / 2;
+    m.x = c.x + Math.cos(ang) * R;
+    m.y = c.y + Math.sin(ang) * R;
+    m.vx = m.vy = 0;
+  });
+  folded.add(tag);
+  rebuildView();
+  S.alpha = Math.max(S.alpha, 0.22);
+  mount();
+  if (S.pad) fitView(S.pad);          // 46 个成员铺开会比星团大一圈，重新取景免得飞出画布
+}
+
+function collapseCluster(tag) {
+  const c = G.clusters.find(x => x.tag === tag);
+  if (!c || !folded.has(tag)) return;
+  folded.delete(tag);
+  const n = c.members.length || 1;
+  c.x = c.members.reduce((s, m) => s + m.x, 0) / n;
+  c.y = c.members.reduce((s, m) => s + m.y, 0) / n;
+  c.vx = c.vy = 0;
+  rebuildView();
+  S.alpha = Math.max(S.alpha, 0.22);
+  mount();
+  if (S.pad) fitView(S.pad);
+}
+
+/** 展开中的星团在画面上圈住的范围——点这个圈里的空白就收起。 */
+function expandedRings() {
+  const out = [];
+  for (const c of G.clusters) {
+    if (!isFoldable(c) || !folded.has(c.tag) || !c.members.length) continue;
+    let r = 0;
+    for (const m of c.members) r = Math.max(r, Math.hypot(m.x - c.x, m.y - c.y) + m.r);
+    out.push({ tag: c.tag, x: c.x, y: c.y, r: r + 18 });
+  }
+  return out;
+}
+
+/* ============ 物理 ============ */
+const S = { alpha: 1, cam: 1, tx: 0, ty: 0, drag: null, hover: null, sel: null, query: '' };
+
+function seed(N) {
+  // phyllotaxis 起点，避免全部重叠
+  const k = 2.1, out = [];
+  for (let i = 0; i < N; i++) out.push({ x: Math.cos(i * k) * (14 + 9 * Math.sqrt(i)), y: Math.sin(i * k) * (14 + 9 * Math.sqrt(i)) });
+  return out;
+}
+
+function step(G) {
+  const { nodes, edges } = G;
+  const n = nodes.length;
+  const rep = n > 60 ? 2600 : 6200;
+  for (let i = 0; i < n; i++) {
+    const A = nodes[i];
+    for (let j = i + 1; j < n; j++) {
+      const B = nodes[j];
+      let dx = B.x - A.x, dy = B.y - A.y;
+      let d2 = dx * dx + dy * dy;
+      if (d2 < 1e-3) { dx = (i - j) * .31; dy = (j - i) * .17; d2 = dx * dx + dy * dy + 1e-3; }
+      const d = Math.sqrt(d2);
+      // 1/d² 必须封顶：两个节点几乎重合时（比如全折叠成 6 颗星且都没有线），
+      // 不封顶的斥力会把整张图炸到几万单位外，相机再怎么 fit 也救不回来
+      const f = Math.min(rep / d2, 3.5);
+      const ux = dx / d, uy = dy / d;
+      const sw = (A.r + B.r) * 1.5;
+      const extra = d < sw ? (sw - d) * 0.55 : 0;
+      A.vx -= ux * (f + extra); A.vy -= uy * (f + extra);
+      B.vx += ux * (f + extra); B.vy += uy * (f + extra);
+    }
+  }
+  for (const e of edges) {
+    const A = nodes[e.a], B = nodes[e.b];
+    const rest = (A.r + B.r) * 1.45 + 30 / (0.35 + e.w) + 14;
+    let dx = B.x - A.x, dy = B.y - A.y;
+    let d = Math.hypot(dx, dy) || 1;
+    const f = (d - rest) * 0.014 * (0.4 + e.w);
+    const ux = dx / d, uy = dy / d;
+    A.vx += ux * f; A.vy += uy * f;
+    B.vx -= ux * f; B.vy -= uy * f;
+  }
+  for (const A of nodes) {
+    A.vx -= A.x * 0.0042; A.vy -= A.y * 0.0042;   // 向心
+    A.vx *= 0.86; A.vy *= 0.86;
+    const sp2 = A.vx * A.vx + A.vy * A.vy;        // 速度封顶，防单帧跳飞
+    if (sp2 > 900) { const k = 30 / Math.sqrt(sp2); A.vx *= k; A.vy *= k; }
+    A.x += A.vx * S.alpha; A.y += A.vy * S.alpha;
+  }
+  S.alpha *= 0.985;
+  if (S.alpha < 0.004) S.alpha = 0.004;
+}
+
+/* ============ 画布 ============ */
+const cv = document.getElementById('sky');
+const ctx = cv.getContext('2d', { alpha: false });
+let W = 0, H = 0, DPR = 1, bg = null, sprites = new Map();
+
+function sprite(color) {
+  if (sprites.has(color)) return sprites.get(color);
+  const s = 96, c = document.createElement('canvas');
+  c.width = c.height = s;
+  const g = c.getContext('2d');
+  const rg = g.createRadialGradient(s / 2, s / 2, 0, s / 2, s / 2, s / 2);
+  rg.addColorStop(0, hexA(color, 1));
+  rg.addColorStop(.10, hexA(color, .72));
+  rg.addColorStop(.26, hexA(color, .26));
+  rg.addColorStop(.55, hexA(color, .06));
+  rg.addColorStop(1, hexA(color, 0));
+  g.fillStyle = rg; g.fillRect(0, 0, s, s);
+  sprites.set(color, c);
+  return c;
+}
+function hexA(hex, a) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16), g = parseInt(h.slice(2, 4), 16), b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function makeBg() {
+  const c = document.createElement('canvas');
+  c.width = W * DPR; c.height = H * DPR;
+  const g = c.getContext('2d');
+  g.scale(DPR, DPR);
+  const rg = g.createRadialGradient(W * .34, H * .26, 0, W * .34, H * .26, Math.max(W, H) * .92);
+  rg.addColorStop(0, '#0d1533'); rg.addColorStop(.45, '#080d1e'); rg.addColorStop(1, '#04060f');
+  g.fillStyle = rg; g.fillRect(0, 0, W, H);
+  // 朦胧星云
+  for (let i = 0; i < 5; i++) {
+    const x = Math.random() * W, y = Math.random() * H, rr = 180 + Math.random() * 320;
+    const ng = g.createRadialGradient(x, y, 0, x, y, rr);
+    const hue = [ 'rgba(110,90,255,', 'rgba(40,150,220,', 'rgba(180,100,220,' ][i % 3];
+    ng.addColorStop(0, hue + '.055)'); ng.addColorStop(1, hue + '0)');
+    g.fillStyle = ng; g.beginPath(); g.arc(x, y, rr, 0, 7); g.fill();
+  }
+  // 背景细星
+  for (let i = 0; i < 620; i++) {
+    const x = Math.random() * W, y = Math.random() * H;
+    const a = Math.random() * .5 + .06, r = Math.random() * 1.15 + .25;
+    g.fillStyle = `rgba(${200 + Math.random() * 55 | 0},${215 + Math.random() * 40 | 0},255,${a})`;
+    g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+  }
+  bg = c;
+}
+
+function resize() {
+  DPR = Math.min(2, window.devicePixelRatio || 1);
+  W = innerWidth; H = innerHeight;
+  cv.width = W * DPR; cv.height = H * DPR;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px';
+  makeBg();
+}
+
+/* ============ 渲染 ============ */
+let G = null, t0 = performance.now();
+
+function screenPos(n) {
+  return { x: W / 2 + S.tx + n.x * S.cam, y: H / 2 + S.ty + n.y * S.cam };
+}
+
+function visible(n) {
+  if (!S.query) return true;
+  const q = S.query.toLowerCase();
+  // 星团：只要它任意一个成员命中就算命中（搜「审批」时不该把整团藏起来）
+  if (n.kind === 'cluster') {
+    return (n.tag + ' ' + n.members.map(m => m.text + ' ' + m.tags.join(' ')).join(' ')).toLowerCase().includes(q);
+  }
+  return (n.text + ' ' + n.tags.join(' ')).toLowerCase().includes(q);
+}
+
+function draw(now) {
+  if (!G) return;
+  if (S.alpha > 0.005) step(G);
+  const t = (now - t0) / 1000;
+
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(bg, 0, 0);
+
+  const { nodes, edges } = G;
+  const selIdx = S.sel == null ? -1 : nodes.findIndex(n => n.id === S.sel);
+  const selNeighbors = new Set();
+  if (selIdx >= 0) {
+    selNeighbors.add(selIdx);
+    for (const e of edges) { if (e.a === selIdx) selNeighbors.add(e.b); if (e.b === selIdx) selNeighbors.add(e.a); }
+  }
+
+  ctx.save();
+  ctx.translate(W / 2 + S.tx, H / 2 + S.ty);
+  ctx.scale(S.cam, S.cam);
+
+  // ---- 连线 ----
+  if (showEdge) for (const e of edges) {
+    const A = nodes[e.a], B = nodes[e.b];
+    const va = visible(A), vb = visible(B);
+    let a = (0.10 + 0.42 * e.w) * (va && vb ? 1 : 0.18);
+    if (selIdx >= 0) a *= (selNeighbors.has(e.a) && selNeighbors.has(e.b)) ? 1.9 : 0.25;
+    const col = e.tag ? tagHue(e.tag) : (e.session ? '#8fb4ff' : '#5f6d99');
+    ctx.strokeStyle = hexA(col, Math.min(.85, a));
+    ctx.lineWidth = (e.tag ? 0.9 : 0.6) + e.w * 1.1;
+    ctx.setLineDash(e.tag ? [] : [3, 4]);
+    ctx.beginPath(); ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y); ctx.stroke();
+  }
+  ctx.setLineDash([]);
+
+  // ---- 展开中的星团：圈住成员，并给一句「点空白收起」 ----
+  for (const ring of expandedRings()) {
+    const c = G.clusters.find(x => x.tag === ring.tag);
+    ctx.strokeStyle = hexA(c ? c.color : '#8fb4ff', .30);
+    ctx.setLineDash([5, 7]); ctx.lineWidth = 1 / S.cam;
+    ctx.beginPath(); ctx.arc(ring.x, ring.y, ring.r, 0, 7); ctx.stroke();
+    ctx.setLineDash([]);
+    if (showLabel) {
+      const fs = 9.5 / S.cam;
+      ctx.font = `500 ${fs}px -apple-system,"Segoe UI","Microsoft YaHei",sans-serif`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillStyle = hexA(c ? c.color : '#8fb4ff', .85);
+      ctx.fillText(`${ring.tag} ×${c ? c.members.length : ''} · 点空白收起`, ring.x, ring.y - ring.r - 5 / S.cam);
+    }
+  }
+
+  // ---- 星体：光晕 ----
+  ctx.globalCompositeOperation = 'lighter';
+  const order = nodes.slice().sort((a, b) => a.r - b.r);
+  for (const n of order) {
+    const on = visible(n);
+    const pulse = 1 + 0.05 * Math.sin(t * 1.4 + n.i * 1.7);
+    const glowR = n.r * (showHalo ? 3.7 : 2.35) * (0.8 + n.heat * 0.8) * pulse;
+    const alphaBase = on ? (selIdx >= 0 ? (selNeighbors.has(n.i) ? 1 : .28) : 1) : .3;
+    ctx.globalAlpha = alphaBase * (0.55 + 0.45 * n.heat);
+    ctx.drawImage(sprite(n.color), n.x - glowR, n.y - glowR, glowR * 2, glowR * 2);
+    // 亮星的十字星芒
+    if (on && n.heat > 0.42 && nodes.length <= 60) {
+      const L = glowR * 1.35 * (0.5 + n.heat * 0.6);
+      ctx.globalAlpha = alphaBase * 0.34 * n.heat;
+      ctx.fillStyle = hexA(n.color, 1);
+      ctx.fillRect(n.x - L, n.y - 0.55 / S.cam, L * 2, 1.1 / S.cam);
+      ctx.fillRect(n.x - 0.55 / S.cam, n.y - L * 0.72, 1.1 / S.cam, L * 1.44);
+    }
+  }
+  ctx.globalCompositeOperation = 'source-over';
+
+  for (const n of order) {
+    const on = visible(n);
+    let a = on ? 1 : .3;
+    if (selIdx >= 0 && !selNeighbors.has(n.i)) a *= .35;
+    ctx.globalAlpha = a;
+    // 实心核心
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r * .5, 0, 7);
+    ctx.fillStyle = hexA(n.color, .55); ctx.fill();
+    // 白热内芯
+    const core = ctx.createRadialGradient(n.x - n.r * .06, n.y - n.r * .08, 0, n.x, n.y, n.r * .42);
+    core.addColorStop(0, 'rgba(255,255,255,.98)');
+    core.addColorStop(.42, hexA(n.color, .85));
+    core.addColorStop(1, hexA(n.color, 0));
+    ctx.beginPath(); ctx.arc(n.x, n.y, n.r * .42, 0, 7);
+    ctx.fillStyle = core; ctx.fill();
+    // 孤立环
+    if (n.isolated && on) {
+      ctx.strokeStyle = 'rgba(206,218,255,.62)';
+      ctx.setLineDash([3, 4]); ctx.lineWidth = 1 / S.cam;
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r * .46 + 7 / S.cam, 0, 7); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // 星团标记：虚线包围环（点开才散）
+    if (n.kind === 'cluster') {
+      ctx.strokeStyle = hexA(n.color, .75); ctx.lineWidth = 1.1 / S.cam;
+      ctx.setLineDash([2.5, 3.5]);
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r * .46 + 8 / S.cam, 0, 7); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // 选中环
+    if (selIdx === n.i) {
+      ctx.strokeStyle = hexA(n.color, .95); ctx.lineWidth = 1.3 / S.cam;
+      ctx.beginPath(); ctx.arc(n.x, n.y, n.r * .46 + 10 / S.cam, 0, 7); ctx.stroke();
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // ---- 标签 ----
+  if (showLabel) {
+    const fs = 10.5 / S.cam;
+    ctx.font = `500 ${fs}px -apple-system,"Segoe UI","Microsoft YaHei",sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const placed = [];
+    const byHeat = nodes.slice().sort((a, b) => (b.heat - a.heat) || (b.r - a.r));
+    for (const n of byHeat) {
+      if (!visible(n)) continue;
+      if (nodes.length > 40 && selIdx !== n.i && S.hover !== n) continue;
+      const near = selIdx < 0 || selNeighbors.has(n.i);
+      const label = n.short;
+      const wpx = ctx.measureText(label).width;
+      const below = n.y < 0 || screenPos(n).y < H * 0.78;
+      const ly = below ? n.y + n.r * .46 + 6 / S.cam : n.y - n.r * .46 - 6 / S.cam - fs;
+      const box = { x: n.x - wpx / 2 - 2, y: ly - 1, w: wpx + 4, h: fs + 2 };
+      const forced = selIdx === n.i || S.hover === n;
+      const clash = placed.some(r => !(box.x + box.w < r.x || box.x > r.x + r.w || box.y + box.h < r.y || box.y > r.y + r.h));
+      if (clash && !forced) continue;
+      placed.push(box);
+      ctx.globalAlpha = Math.min(1, 0.5 + n.heat * 0.55) * (near ? 1 : .3) * (forced ? 1 : .96);
+      ctx.shadowColor = 'rgba(2,5,14,.95)';
+      ctx.shadowBlur = 6;
+      ctx.fillStyle = forced ? '#ffffff' : 'rgba(226,234,255,.94)';
+      ctx.fillText(label, n.x, ly);
+      ctx.shadowBlur = 0;
+    }
+  }
+  ctx.restore();
+  ctx.globalAlpha = 1;
+
+  requestAnimationFrame(draw);
+}
+
+/* ============ 交互 ============ */
+let showEdge = true, showLabel = true, showHalo = false;
+
+function hitTest(mx, my) {
+  let best = null, bd = Infinity;
+  for (const n of G.nodes) {
+    const p = screenPos(n);
+    const rr = Math.max(11, n.r * S.cam * .46 + 7);
+    const d = Math.hypot(mx - p.x, my - p.y);
+    if (d < rr && d < bd) { bd = d; best = n; }
+  }
+  return best;
+}
+
+const tip = document.getElementById('tip');
+cv.addEventListener('mousemove', ev => {
+  const mx = ev.clientX, my = ev.clientY;
+  if (S.drag && S.drag.node) {
+    const n = S.drag.node;
+    n.x = (mx - S.drag.dx - W / 2 - S.tx) / S.cam;
+    n.y = (my - S.drag.dy - H / 2 - S.ty) / S.cam;
+    n.vx = n.vy = 0;
+    S.alpha = Math.max(S.alpha, .18);
+    return;
+  }
+  if (S.drag && S.drag.pan) {
+    S.tx = S.drag.tx + (mx - S.drag.mx);
+    S.ty = S.drag.ty + (my - S.drag.my);
+    cv.classList.add('dragging');
+    return;
+  }
+  const n = hitTest(mx, my);
+  S.hover = n;
+  if (!n || S.sel != null) { tip.classList.remove('on'); cv.style.cursor = n ? 'pointer' : 'grab'; return; }
+  cv.style.cursor = 'pointer';
+  const e = n;
+  if (e.kind === 'cluster') {
+    tip.innerHTML =
+      `<div class="h">${esc(e.tag)} ×${e.members.length}　星团</div>` +
+      `<div>${e.members.length} 条条目共用这个标签，已叠成一颗星。</div>` +
+      `<div class="m">合计 ${e.chars} 字符 · 召回 ${e.recalls} 次 · 点一下${folded.has(e.tag) ? '收起' : '展开'}</div>`;
+  } else {
+    tip.innerHTML =
+      `<div class="h">${esc(e.short)}</div>` +
+      `<div>${esc(e.text.slice(0, 84))}${e.text.length > 84 ? '…' : ''}</div>` +
+      `<div class="m">${e.track}/${e.scope} · ${e.chars} 字符 · 召回 ${e.recalls}` +
+      (e.isolated ? ' · <span class="e">孤立</span>' : '') +
+      ` · ${e.tags.length ? esc(e.tags.join(' · ')) : '无标签'}</div>`;
+  }
+  tip.classList.add('on');
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.min(innerWidth - w - 12, mx + 16) + 'px';
+  tip.style.top = Math.min(innerHeight - h - 12, my + 16) + 'px';
+});
+
+cv.addEventListener('mousedown', ev => {
+  const n = hitTest(ev.clientX, ev.clientY);
+  if (n) {
+    const p = screenPos(n);
+    S.drag = { node: n, dx: ev.clientX - p.x, dy: ev.clientY - p.y, sx: ev.clientX, sy: ev.clientY };
+  } else {
+    S.drag = { pan: true, mx: ev.clientX, my: ev.clientY, tx: S.tx, ty: S.ty, sx: ev.clientX, sy: ev.clientY };
+  }
+});
+addEventListener('mouseup', ev => {
+  const d = S.drag; S.drag = null;
+  if (!d) return;
+  const moved = Math.hypot(ev.clientX - d.sx, ev.clientY - d.sy) > 4;   // 拖动 ≠ 点击
+  if (d.node) {
+    if (moved) return;                       // 摆位置，不开面板
+    const n = d.node;
+    if (n.kind === 'cluster') {              // 星团：点一下切换展开/收起
+      if (folded.has(n.tag)) collapseCluster(n.tag); else expandCluster(n.tag);
+    }
+    select(n);
+    return;
+  }
+  if (d.pan) {
+    cv.classList.remove('dragging');
+    if (moved) return;                       // 平移，不算点空白
+    const wx = (ev.clientX - W / 2 - S.tx) / S.cam;
+    const wy = (ev.clientY - H / 2 - S.ty) / S.cam;
+    const ring = expandedRings().find(r => Math.hypot(wx - r.x, wy - r.y) <= r.r);
+    if (ring) collapseCluster(ring.tag);     // 点展开星团的圈内空白 = 收起
+    select(null);
+  }
+});
+
+cv.addEventListener('wheel', ev => {
+  ev.preventDefault();
+  const k = Math.exp(-ev.deltaY * 0.0013);
+  const mx = ev.clientX - W / 2, my = ev.clientY - H / 2;
+  const ncam = Math.max(0.35, Math.min(3.4, S.cam * k));
+  S.tx = mx - (mx - S.tx) * (ncam / S.cam);
+  S.ty = my - (my - S.ty) * (ncam / S.cam);
+  S.cam = ncam;
+}, { passive: false });
+
+/* ============ 侧栏 ============ */
+const side = document.getElementById('side');
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function fmt(ts) {
+  const d = new Date(ts);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+function ago(ts) {
+  const days = (Date.now() - ts) / 864e5;
+  if (days < 1) return '今天';
+  if (days < 2) return '昨天';
+  return Math.round(days) + ' 天前';
+}
+
+function select(n) {
+  S.sel = n ? n.id : null;
+  tip.classList.remove('on');
+  if (!n) { side.classList.remove('open'); return; }
+  side.classList.add('open');
+  const isC = n.kind === 'cluster';
+  const kind = document.getElementById('s-kind');
+  kind.textContent = isC ? `星团 · ${n.tag} ×${n.members.length}` : n.track + ' / ' + n.scope;
+  kind.style.background = hexA(n.color, .16);
+  kind.style.color = n.color;
+  document.getElementById('s-ttl').textContent = n.short;
+  document.getElementById('s-txt').textContent = isC
+    ? n.members.slice().sort((a, b) => b.chars - a.chars)
+        .map(m => `• ${m.short}　${m.chars} 字符 · 召回 ${m.recalls}`).join('\n')
+    : n.text;
+  const tags = document.getElementById('s-tags');
+  tags.innerHTML = n.tags.length ? n.tags.map(t => `<span>${esc(t)}</span>`).join('') : '<span class="none">无标签（所以连不上任何星群）</span>';
+  const meta = document.getElementById('s-meta');
+  meta.innerHTML = isC
+    ? `<dt>成员</dt><dd>${n.members.length} 条条目</dd>
+       <dt>合计字符</dt><dd>${n.chars}</dd>
+       <dt>合计召回</dt><dd>${n.recalls} 次</dd>
+       <dt>线索</dt><dd>${n.deg} 条</dd>
+       <dt>状态</dt><dd>${folded.has(n.tag) ? '已展开（点星团收起）' : '折叠中（点星团展开）'}</dd>`
+    : `<dt>字符</dt><dd>${n.chars}</dd>
+    <dt>召回</dt><dd>${n.recalls} 次 ${n.lastRecalled ? '· 最近 ' + ago(n.lastRecalled) : ''}</dd>
+    <dt>版本</dt><dd>v${n.version}</dd>
+    <dt>建立</dt><dd>${fmt(n.created)}</dd>
+    <dt>更新</dt><dd>${fmt(n.updated)}</dd>
+    <dt>来源</dt><dd>${esc(n.source)}</dd>
+    <dt>会话</dt><dd>${esc(n.session || '—')}</dd>
+    <dt>线索</dt><dd>${n.deg} 条</dd>`;
+  const ids = isC ? new Set(n.members.map(m => m.id)) : null;
+  const au = DATA.audit.filter(a => (ids ? ids.has(a.entry_id) : a.entry_id === n.id))
+    .sort((a, b) => b.ts - a.ts).slice(0, isC ? 16 : 12);
+  document.getElementById('s-audit').innerHTML = au.length
+    ? au.map(a => `<div class="evt"><time>${fmt(a.ts)}</time><em>${esc(a.action)}</em><span class="${a.outcome.startsWith('reject') ? 'bad' : ''}">${esc(short(a.outcome))}</span></div>`).join('')
+    : '<div class="evt" style="color:#66708f">无单独审计记录</div>';
+}
+function short(s) { return s.replace(/\(.*?\)/g, '').trim(); }
+document.getElementById('close').onclick = () => { select(null); };
+addEventListener('keydown', e => { if (e.key === 'Escape') { select(null); document.getElementById('q').blur(); } });
+
+/* ============ HUD 填充 ============ */
+function mount() {
+  document.getElementById('src').textContent =
+    DATA.dbPath + ' · 读取 ' + fmt(DATA.generatedAt) + ' · 只读' + (DATA.mode ? ' · ' + DATA.mode : '')
+    + ' · 每 20s 自动检查';
+  const nIso = groupCount(G.nodes, n => n.isolated);
+  const nClus = G.clusters.filter(isFoldable).length;
+  const isDense = document.body.classList.contains('dense');
+  document.getElementById('chips').innerHTML =
+    (isDense ? `<span class="chip" style="border-color:#ffd47988;color:#ffd479">合成数据 · 只演示布局极限</span>` : '') +
+    `<span class="chip">节点 <b>${G.nodes.length}</b></span>` +
+    `<span class="chip">线索 <b>${G.edges.length}</b></span>` +
+    (nClus ? `<span class="chip">星团 <b>${nClus}</b></span>` : '') +
+    (nClus && G.clusters.some(c => isFoldable(c) && folded.has(c.tag))
+      ? `<span class="chip">已展开 <b>${G.clusters.filter(c => isFoldable(c) && folded.has(c.tag)).length}</b></span>` : '') +
+    `<span class="chip">孤立 <b>${nIso}</b></span>` +
+    `<span class="chip">总字符 <b>${G.all.nodes.reduce((s, n) => s + n.chars, 0)}</b></span>` +
+    `<span class="chip">形态 <b>力导向 · 只读</b></span>`;
+
+  document.getElementById('bars').innerHTML = DATA.budgets.map(b => {
+    const pct = Math.min(100, b.used / b.cap * 100);
+    const over = b.used > b.cap * 0.92;
+    return `<div class="bar ${b.used > b.cap ? 'over' : ''}">
+      <div class="top"><span>${esc(b.label)}</span><span><b>${b.used}</b> / ${b.cap}</span></div>
+      <div class="track"><div class="fill" style="width:${pct}%;background:linear-gradient(90deg,${b.color},${b.color}cc)"></div></div>
+    </div>`;
+  }).join('');
+  const w = DATA.budgets.find(b => b.label.includes('workspace'));
+  document.getElementById('bnote').textContent = w && w.used > w.cap * 0.9
+    ? `workspace 层只剩 ${w.cap - w.used} 字符——再加一条就超，星图里能直接看出哪颗星最占地方。`
+    : '预算条按条目的字符数实时求和，与注入快照口径一致。';
+
+  const tagCount = {};
+  for (const n of G.nodes) for (const t of n.tags) tagCount[t] = (tagCount[t] || 0) + 1;
+  const top = Object.entries(tagCount).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  document.getElementById('taglist').innerHTML = top.map(([t, c]) =>
+    `<i style="color:${tagHue(t)}"><b></b>${esc(t)} ${c > 1 ? '×' + c : ''}</i>`).join('');
+}
+function groupCount(arr, fn) { return arr.filter(fn).length; }
+
+/* ============ 开关 ============ */
+function bindToggles() {
+  const e1 = document.getElementById('tg-edge'), l1 = document.getElementById('tg-label'), h1 = document.getElementById('tg-halo');
+  e1.onclick = () => { showEdge = !showEdge; e1.classList.toggle('on', showEdge); };
+  l1.onclick = () => { showLabel = !showLabel; l1.classList.toggle('on', showLabel); };
+  h1.onclick = () => { showHalo = !showHalo; h1.classList.toggle('on', showHalo); };
+  document.getElementById('q').oninput = ev => { S.query = ev.target.value.trim(); };
+}
+
+/* ============ 合成压力演示 ============ */
+let realG = null, realChips = null;
+function synthetic() {
+  const pool = ['qqbot','审批桥','沙盒','git','插件','dsh','profile','教训','记忆','部署','代理','日志','配置','测试','脚本','通知'];
+  const clusterNames = ['qqbot 集群','审批链','沙盒与权限','工作区卫生','插件与市场','星图实验'];
+  const entries = [];
+  for (let c = 0; c < 6; c++) {
+    const size = 38 + (c % 3) * 4;
+    for (let i = 0; i < size; i++) {
+      const tags = [pool[c * 2 % pool.length], pool[(c * 2 + 1) % pool.length]];
+      if (i % 7 === 0) tags.pop();
+      const words = [];
+      for (let k = 0; k < 14; k++) words.push(pool[(c * 3 + k * 5 + i) % pool.length]);
+      entries.push({
+        id: 'syn-' + c + '-' + i,
+        short: clusterNames[c] + ' #' + (i + 1),
+        text: `[合成数据，仅用于演示布局极限] ${words.join(' · ')} ` + words.slice(0, 6).join('，'),
+        track: i % 5 === 0 ? 'user' : 'agent',
+        scope: i % 5 === 0 ? 'user-global' : 'workspace',
+        tags, chars: 120 + ((i * 37) % 600), recalls: (i * 13) % 60,
+        created: Date.now() - i * 864e5, updated: Date.now() - i * 36e5,
+        lastRecalled: Date.now() - i * 36e5, version: 1 + (i % 3),
+        source: 'synthetic', session: 'syn-' + c
+      });
+    }
+  }
+  return entries;
+}
+
+/* ============ 数据接入（MCP/宿主服务 → 页面形状） ============ */
+const num = (v, d) => (typeof v === 'number' && Number.isFinite(v) ? v : d);
+
+/** graph JSON → 页面内部形状：服务用 camelCase（recallCount/createdAt/entryId…）。 */
+/** 星标文字：取正文第一句，掐到 18 个字（与 ops/memory-starmap/build.mjs 的 short() 同规则）。 */
+function brief(t) {
+  const head = String(t).split(/[。；;\n]/)[0].replace(/^[\s①-⑩]+/, '');
+  return head.length > 18 ? head.slice(0, 18) + '…' : head;
+}
+
+function normalize(j) {
+  const entries = (j.entries || []).map(e => {
+    const text = typeof e.text === 'string' ? e.text : '';
+    return {
+      id: e.id,
+      short: brief(text),
+      track: e.track,
+      scope: e.scope,
+      text,
+      tags: Array.isArray(e.tags) ? e.tags : [],
+      chars: text.length,
+      recalls: num(e.recallCount, 0),
+      session: e.sessionId || null,
+      created: num(e.createdAt, 0),
+      updated: num(e.updatedAt, 0),
+      lastRecalled: e.lastRecalled || null,
+      version: num(e.version, 1),
+      source: e.source || '',
+    };
+  });
+  const budgetColor = b => (b.used / Math.max(1, b.limit)) > 1 ? '#ff6f8f'
+    : (b.track === 'user' ? '#ffd479' : '#6fe3ff');
+  const budgets = (j.budgets || []).map(b => ({
+    label: b.track + ' · ' + b.scope,
+    used: num(b.used, 0),
+    cap: num(b.limit, 0),
+    color: budgetColor(b),
+  }));
+  const audit = (j.audit || []).map(a => ({
+    entry_id: a.entryId,
+    ts: num(a.ts, 0),
+    action: a.action || '?',
+    outcome: typeof a.outcome === 'string' ? a.outcome : '',
+  }));
+  return {
+    entries, budgets, audit,
+    dbPath: j.dbPath || 'dsh-memento',
+    generatedAt: num(j.generatedAt, Date.now()),
+    mode: j.source || '',
+  };
+}
+
+/** 数据指纹：只关心「图会变吗」——条目增删改、字符数、召回次数、预算占用。 */
+function signature(d) {
+  return d.entries.map(e => [e.id, e.updated, e.recalls, e.chars, e.tags.join('|')].join(':')).join(';')
+    + '#' + d.budgets.map(b => b.used + '/' + b.cap).join(',');
+}
+let SIG = '';
+
+/** 首屏/刷新共用：拉 JSON → 重建星图。失败就在画布中央报错，不装死。 */
+async function refresh(opts) {
+  const silent = !!(opts && opts.silent);
+  const errBox = document.getElementById('err');
+  try {
+    const res = await fetch('/api/memory-starmap/graph', { cache: 'no-store' });
+    const body = await res.json().catch(() => null);
+    if (!res.ok || !body || body.ok === false) {
+      throw new Error((body && (body.error || body.message)) || ('HTTP ' + res.status));
+    }
+    const next = normalize(body);
+    const sig = signature(next);
+    const changed = sig !== SIG;
+    DATA = next;
+    SIG = sig;
+    errBox.hidden = true;
+    if (changed) {
+      // 合成演示开着的时候不打断它：只换数据，不重建视图
+      if (!document.body.classList.contains('dense')) load(DATA.entries, false, { keep: silent });
+    }
+    mount();
+  } catch (err) {
+    if (silent) return;                       // 后台轮询失败，不砸掉已经画出来的图
+    errBox.hidden = false;
+    errBox.innerHTML = '<b>读不到记忆库</b>' + esc(String(err && err.message || err))
+      + '\n\n排错顺序：① 这个 profile 里有没有装载 dsh-memento；② /api/memory-starmap/graph 是否 200；'
+      + '③ 插件的 dbPath 配置是否指向真实的 dsh-memento.db。';
+    if (!G) return;
+  }
+}
+
+document.getElementById('tg-refresh').onclick = () => { void refresh(); };
+
+/* 新鲜度：20s 看一次库（标签页隐藏时不动），内容变了才重排。 */
+const POLL_MS = 20000;
+setInterval(() => {
+  if (document.hidden || document.body.classList.contains('dense')) return;
+  void refresh({ silent: true });
+}, POLL_MS);
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden || document.body.classList.contains('dense')) return;
+  void refresh({ silent: true });
+});
+
+/* ============ 启动 ============ */
+function fitView(pad) {
+  // 用分位数而不是 min/max：单个离群条目不该把整张图缩成芝麻
+  const q = (arr, p) => {
+    const a = arr.slice().sort((m, n) => m - n);
+    return a[Math.min(a.length - 1, Math.max(0, Math.round((a.length - 1) * p)))];
+  };
+  const xs = G.nodes.map(n => n.x), ys = G.nodes.map(n => n.y);
+  const x0 = q(xs, .06), x1 = q(xs, .94), y0 = q(ys, .06), y1 = q(ys, .94);
+  const w = Math.max(120, x1 - x0), h = Math.max(120, y1 - y0);
+  const aw = Math.max(260, W - pad.l - pad.r), ah = Math.max(220, H - pad.t - pad.b);
+  S.cam = Math.max(0.45, Math.min(1.45, Math.min(aw / (w + 260), ah / (h + 200))));
+  const cx = q(xs, .5), cy = q(ys, .5);
+  S.tx = (pad.l - pad.r) / 2 - cx * S.cam;
+  S.ty = (pad.t - pad.b) / 2 - cy * S.cam;
+}
+
+function load(entries, dense, opts) {
+  // keep=true：后台自动刷新用——保住相机、折叠状态和当前选中，别把人正在看的图掀了
+  const keep = !!(opts && opts.keep);
+  const prevCam = S.cam, prevTx = S.tx, prevTy = S.ty, prevSel = S.sel;
+  const prevFolded = new Set(folded);
+  // 记住老星位：自动刷新时沿用，只把新条目塞到它的邻居旁边，整张图不要跳
+  const prevPos = new Map();
+  if (keep && G) for (const n of G.all.nodes) prevPos.set(n.id, { x: n.x, y: n.y });
+  // dense 演示故意不折叠：它要展示的就是「不折叠会变成什么样」
+  // ?minCluster=N 可以临时改折叠门槛（默认 3，调试用）
+  const mc = Number(new URLSearchParams(location.search).get('minCluster')) || 0;
+  // dense 演示默认不折叠（它要展示「全铺开」的极限）；带 ?minCluster=N 时按 N 折叠，用来看真实规模下的星团
+  const built = buildGraph(entries, mc ? { minCluster: mc } : (dense ? { minCluster: 1e9 } : {}));
+  G = { all: { nodes: built.nodes, edges: built.edges }, df: built.df, clusters: built.clusters, min: built.min, nodes: [], edges: [] };
+  folded.clear();
+  if (keep) for (const t of prevFolded) if (G.clusters.some(c => c.tag === t)) folded.add(t);
+  const sp = seed(G.all.nodes.length);
+  // 不要加随机抖动：300 步牛顿迭代会把 ±1px 的差异放大成完全不同的星位
+  G.all.nodes.forEach((n, i) => {
+    const old = prevPos.get(n.id);
+    if (old) { n.x = old.x; n.y = old.y; return; }
+    if (keep) {
+      // 新条目：贴在它的邻居中间，找不到邻居就放在原点附近，交给后面的收敛挪开
+      const mates = G.all.edges.filter(e => e.a === i || e.b === i)
+        .map(e => prevPos.get(G.all.nodes[e.a === i ? e.b : e.a]?.id))
+        .filter(Boolean);
+      if (mates.length) {
+        n.x = mates.reduce((s, m) => s + m.x, 0) / mates.length;
+        n.y = mates.reduce((s, m) => s + m.y, 0) / mates.length;
+      } else { n.x = 0; n.y = 0; }
+      return;
+    }
+    n.x = sp[i].x; n.y = sp[i].y;
+  });
+  syncClusterCenters();
+  rebuildView();
+  // 先同步收敛：首帧即稳定布局，且每次打开星位一致（自动刷新只做小幅松弛）
+  S.alpha = keep ? 0.35 : 1;
+  for (let i = 0; i < (keep ? 80 : (G.nodes.length > 60 ? 200 : 300)); i++) step(G);
+  S.alpha = 0.09;
+  requestAnimationFrame(t => { t0 = t; draw(t); });
+  S.pad = dense ? { l: 56, r: 56, t: 86, b: 86 } : { l: 300, r: 150, t: 150, b: 150 };
+  if (keep && prevCam) { S.cam = prevCam; S.tx = prevTx; S.ty = prevTy; } else fitView(S.pad);
+  if (keep) {
+    S.sel = prevSel != null && G.nodes.some(n => n.id === prevSel) ? prevSel : null;
+    if (S.sel == null) side.classList.remove('open');
+    else { const again = G.nodes.find(n => n.id === S.sel); if (again) select(again); }
+  } else {
+    S.sel = null; side.classList.remove('open');
+  }  document.getElementById('budget').style.display = dense ? 'none' : '';
+  document.body.classList.toggle('dense', !!dense);
+  mount();
+  if (new URLSearchParams(location.search).has('debug')) {
+    const snap = () => ({
+      nodes: G.nodes.length, edges: G.edges.length, cam: +S.cam.toFixed(3),
+      tx: Math.round(S.tx), ty: Math.round(S.ty), alpha: +S.alpha.toFixed(3),
+      pts: G.nodes.slice(0, 8).map(n => [Math.round(n.x), Math.round(n.y)]),
+    });
+    console.log('[starmap] at-load', JSON.stringify(snap()));
+    setTimeout(() => console.log('[starmap] after-1.5s', JSON.stringify(snap())), 1500);
+  }
+}
+
+document.getElementById('tg-dense').onclick = ev => {
+  const btn = ev.currentTarget;
+  const on = !btn.classList.contains('on');
+  btn.classList.toggle('on', on);
+  btn.textContent = on ? `回到真实 ${DATA.entries.length} 条` : '合成 240 条 · 看极限';
+  if (on) load(synthetic(), true);
+  else load(DATA.entries, false);
+};
+
+addEventListener('resize', resize);
+resize();
+bindToggles();
+void refresh();
+})();
+</script>
+</body>
+</html>
