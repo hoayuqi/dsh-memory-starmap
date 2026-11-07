@@ -2,6 +2,13 @@
 
 把 `dsh-memento` 的记忆条目画成一张**只读星图**，作为 DSH 桌面/网页宿主里的一个客户端插件。
 
+```bash
+# 从 npm 装进某个 profile（desktop 换成你的 profile 名）
+dsh plugin --profile desktop add @gzqdev/dsh-memory-starmap
+```
+
+已发布：`@gzqdev/dsh-memory-starmap@0.2.0`（2026-11-07）。
+
 > 它不存记忆、不注入上下文、不注册模型工具。它只是把 `dsh-memento` 已经存在的那张表
 > 换一种看法：**节点 = 一条记忆**（大小∝字符数，亮度∝召回次数，颜色=track），
 > **连线 = 共享 tag / 词元重叠 / 同一会话**。
