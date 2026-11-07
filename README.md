@@ -103,4 +103,40 @@ Copy-Item D:\gzq\dsh-memory-starmap\ui\starmap.html $T\ui -Force
 - 合成数据演示（`合成 240 条 · 看极限`）默认**不折叠**，因为那一页要展示的就是「全铺开」的极限；
   想看成团效果就加 URL 参数：`/api/memory-starmap/page?minCluster=3` 再点「合成」。
 - 调试参数：`?minCluster=N` 改折叠门槛；`&debug=1` 会把相机与首几个节点的坐标打到 console
+
+## 数据新鲜度（20s 自动检查）
+
+- 页面每 20s 拉一次 `/api/memory-starmap/graph`，标签页隐藏时**不动**，切回来立刻补一次。
+- 只在**内容变了**才重排：指纹 = 每条 `id/updatedAt/recallCount/字符数/tags` + 四层预算占用。
+- 重排是「就地生长」不是「重开一局」：老节点的星位原样沿用，新条目贴到它邻居的平均位置上，
+  相机也不重置（只跑 80 步松弛）。所以后台更新不会把你正在看的那张图掀掉。
+- 合成演示（`合成 240 条`）期间轮询跳过，免得演示被打断。
+
+## 入口形态
+
+两个入口，任选其一：
+
+- **左下角悬浮钮 `✦ 星图`**：可拖动（位置存在本机 `localStorage`），双击复位。
+- **设置 → 记忆星图**：设置页一级项，含「打开星图 / 重新读取」两个按钮和
+  「在左下角显示悬浮按钮」勾选框。勾掉悬浮钮后，随时从设置页进来。
+
+> 踩过的坑：客户端 `inject` 必须写 `['slots']`。不写时 apply 里 `ctx.slots` 拿不到
+> （实测 `slots=false`），设置项会静默缺席；而直接访问未就绪的服务会让整条 client 入口
+> 被宿主标记成 `did not activate`，连浮层都不会出现。
+
+## 发布
+
+包名现在带 `@local` 作用域，只在本机 `file:` 安装用。要真的发到 npm：
+
+1. 改 `package.json` 的 `name`（换成你自己的 scope，例如 `@your-name/dsh-memory-starmap`）与 `repository`。
+2. `pnpm publish --access public`（需要该 scope 的写权限；本机没配过 token）。
+
+不想发布也可以用 tarball 装：
+
+```bash
+NODE="C:/Users/hyqdz/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/node/bin/node.exe"
+PNPM="C:/Users/hyqdz/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/pnpm/bin/pnpm.cjs"
+"$NODE" "$PNPM" pack      # 产出 local-dsh-memory-starmap-0.2.0.tgz（7 个文件）
+```
+
   （排查「图飞到画布外」时用）。
